@@ -1,11 +1,11 @@
 import os
 import io
 import docx
+import google.generativeai as genai
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-from google.cloud import generativelanguage
-from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
+from googleapiclient.http import MediaIoBaseDownload
 
 SCOPES = ['https://www.googleapis.com/auth/drive']
 TO_BE_PROCESSED_FOLDER_ID = 'REMOVED'
@@ -50,8 +50,9 @@ def extract_text(document):
   for paragraph in document.paragraphs:
     text.append(paragraph.text)
   for table in document.tables:
-    for cell in table.cells:
-      text.append(cell.text)
+    for row in table.rows:
+      for cell in row.cells:
+        text.append(cell.text)
   return text
   
     
@@ -71,10 +72,12 @@ def main():
   file_list = get_file_list(service)
       
   if not file_list:
+    print('No files found in "To Be Processed" folder.')
     return
 
   prompt_text = parse_documents(file_list, service)
-  print(prompt_text)
+  with open('output.txt', 'w', encoding='utf-8') as f:
+    f.write(prompt_text)
   
 
 if __name__ == '__main__':
