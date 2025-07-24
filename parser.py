@@ -70,10 +70,29 @@ def parse_documents(file_list, service):
 
 def call_gemini(prompt_text):
   genai.configure(api_key='REMOVED')
-  model = genai.GenerativeModel('gemini-2.5-flash-lite')
-  # response = model.generate_content("You will be given the full text of a license agreement. Your task is to extract milestone-related data into raw CSV text format only with the following columns in this order: OTC Agreement Number, Milestone Name, Milestone Target Completion Date, Milestone Description, Milestone Set Deadline, Milestone Payment. OTC Agreement Number should be extracted from the agreement text. Milestone Name should be either PERFORMANCE MILESTONES for non-payment milestones or MILESTONE PAYMENTS for milestones requiring payment. Milestone Target Completion Date is the due date of the milestone formatted as YYYY-MM-DD. Milestone Description should include the entire original sentence or phrase describing the milestone or payment as written in the agreement, for example 'By November 30, 2025 Licensee will complete milestone A.' Milestone Set Deadline is the same as the Target Completion Date unless a different administrative deadline is given. Milestone Payment should be a numeric value only, for example 3610, or blank if no payment is specified. Only extract milestones from Section 9 (Performance Milestones) and Section 10.5 (Milestone Payments) of the agreement. Convert any dates or dollar amounts written in words into proper numeric format, for example 'three thousand six hundred ten dollars' should be converted to 3610. Format all dates in YYYY-MM-DD. Do not include royalty payments, annual fees, patent reimbursements, or other unrelated payment terms. Repeat the extracted OTC Agreement Number for each milestone row. Output strictly raw CSV text only with no additional formatting, tables, or explanations. Here is the text: " + prompt_text)
-  response = model.generate_content("Hi!")
-  return response  
+  model = genai.GenerativeModel('gemini-2.5-flash')
+  response = model.generate_content(
+    "Task: You will be given the full text of an agreement. Extract every milestone obligation and output them only as CSV rows with the following six columns, in this order:\n"
+    "AgreementNumber — the value that follows the literal text “OTC Agreement Number:” (e.g., A-2025-2025).\n"
+    "MilestoneName — one of exactly two strings:\n"
+    "- PERFORMANCE MILESTONES for obligations listed in Section 9 (Performance Milestones) or described with phrasing like “Licensee will complete milestone ,,,”.\n"
+    "- MILESTONE PAYMENTS for obligations listed in Section 10.5 (Milestone Payments) or described with phrasing like 'Upon ...' or 'Licensee shall pay ...'.\n"
+    "MilestoneTargetDate — the due date for the obligation in YYYY-MM-DD format.\n"
+    "- If the milestone has no explicit date, leave this field blank.\n"
+    "MilestoneDescription — For each milestone (e.g., a, b, c), include ALL sentences in that item, from the first sentence starting with 'Upon ...' or 'Licensee shall pay ...' to the last sentence **before the next item or section**. Wrap the entire block in double quotes. Do not shorten or stop early.\n"
+    "- These will only ever be found inside sections titled 'Performance Milestones' and 'Milestone Payments'.\n"
+    "- If the final character in the milestone description is a semicolon, remove it. Do not include trailing semicolons.\n"
+    "MilestoneSetDeadline — TRUE if a due date exists for the milestone, otherwise FALSE.\n"
+    "MilestonePayment — the numeric dollar amount associated with the milestone, with no currency symbol or commas (e.g., 3610).\n"
+    "- If no payment is specified, leave this field blank.\n"
+    "Formatting rules:\n"
+    "- Output only CSV text.\n"
+    "- Use a single comma (\",\") as the delimiter between each field.\n"
+    "- Preserve the order in which milestones appear in the agreement.\n"
+    "- Do NOT include a header row. Begin immediately with the first milestone row.\n"
+    "Input: " + prompt_text
+  , generation_config={"temperature": 0})
+  return response
     
 def main():
   service = get_google_drive_service()
@@ -86,14 +105,13 @@ def main():
   prompt_text = parse_documents(file_list, service)
   output_raw_text = call_gemini(prompt_text)
   output_text = ''.join(part.text for part in output_raw_text.candidates[0].content.parts)
-  print(output_text)
-  
-  # file_object = io.StringIO(output_text)
-  # with open('output.csv', 'w', newline='') as csvfile:
-  #   writer = csv.writer
+  file_object = io.StringIO(output_text)
+  with open('output.csv', 'w', newline='') as csvfile:
+    writer = csv.writer(csvfile)
+    reader = csv.reader(file_object)
+    for row in reader:
+      writer.writerow(row)
     
-  
-  
-
+    
 if __name__ == '__main__':
     main()
