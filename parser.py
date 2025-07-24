@@ -1,19 +1,40 @@
 import os
 import io
 import csv
-import docx
-import google.generativeai as genai
+import docx # type: ignore
+import logging
+import google.generativeai as genai # type: ignore
 
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseDownload
+from datetime import datetime
+from google.oauth2 import service_account # type: ignore
+from googleapiclient.discovery import build # type: ignore
+from googleapiclient.http import MediaIoBaseDownload # type: ignore
 
 SCOPES = ['https://www.googleapis.com/auth/drive']
 TO_BE_PROCESSED_FOLDER_ID = 'REMOVED'
+PROCESSED_FOLDER_ID = 'REMOVED'
+OUTPUT_FOLDER_ID = 'REMOVED'
+LOGGING_FOLDER_ID = 'REMOVED'
+
+def config_logger():
+  timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+  log_filename = f"{timestamp}_parser.log"
+  logger = logging.getLogger()
+  logger.setLevel(logging.DEBUG)
+  formatter = logging.Formatter('%(levelname)s:%(asctime)s: %(message)s')
+  file_handler = logging.FileHandler(log_filename)
+  file_handler.setLevel(logging.INFO)
+  file_handler.setFormatter(formatter)
+  logger.addHandler(file_handler)
+  logging.getLogger('googleapiclient.discovery_cache').setLevel(logging.ERROR)
+  return logger
+
+logger = config_logger()
 
 def get_google_drive_service():
   creds: None
   if os.path.exists('service_account.json'):
+    logger.info('service_account.json file found! Creating credentials...')
     creds = service_account.Credentials.from_service_account_file('service_account.json', scopes=SCOPES)
   return build('drive', 'v3', credentials=creds)
 
@@ -57,17 +78,6 @@ def extract_text(document):
   return text
   
     
-def parse_documents(file_list, service):
-  for file in file_list:
-      file_id = file['id']
-      file_name = file['name']
-      word_stream = read_word_file_from_drive(service, file_id)
-      document = docx.Document(word_stream)
-      document_text = extract_text(document)
-      prompt_text = "\n".join(document_text)
-  return prompt_text
-      
-
 def call_gemini(prompt_text):
   genai.configure(api_key='REMOVED')
   model = genai.GenerativeModel('gemini-2.5-flash')
@@ -93,25 +103,62 @@ def call_gemini(prompt_text):
     "Input: " + prompt_text
   , generation_config={"temperature": 0})
   return response
-    
-def main():
-  service = get_google_drive_service()
-  file_list = get_file_list(service)
-      
-  if not file_list:
-    print('No files found in "To Be Processed" folder.')
-    return
 
-  prompt_text = parse_documents(file_list, service)
-  output_raw_text = call_gemini(prompt_text)
-  output_text = ''.join(part.text for part in output_raw_text.candidates[0].content.parts)
-  file_object = io.StringIO(output_text)
+
+def parse_documents(file_list, service):
+  logger.info('Creating output.csv file...')
   with open('output.csv', 'w', newline='') as csvfile:
     writer = csv.writer(csvfile)
-    reader = csv.reader(file_object)
-    for row in reader:
-      writer.writerow(row)
+    logger.info('Writing header row in output.csv')
+    writer.writerow([
+      "OTC Agreement Number",
+      "Milestone Name",
+      "Milestone Target Completion Date",
+      "Milestone Description",
+      "Milestone Set Deadline",
+      "Milestone Payment"
+    ])
+    logger.info('Beginning file parsing...')
+    for file in file_list:
+      file_id = file['id']
+      file_name = file['name']
+      logger.info(f'Reading {file_name} from Google Drive...')
+      print(f'Processing {file_name}')
+      word_stream = read_word_file_from_drive(service, file_id)
+      document = docx.Document(word_stream)
+      logger.info(f'Extracting text from {file_name}...')
+      document_text = extract_text(document)
+      logger.info(f'Creating prompt text for {file_name}...')
+      prompt_text = "\n".join(document_text)
+      logger.info('Calling Gemini API...')
+      output_raw_text = call_gemini(prompt_text)
+      logger.info('Formatting output text...')
+      output_text = ''.join(part.text for part in output_raw_text.candidates[0].content.parts)
+      file_object = io.StringIO(output_text)
+      logger.info(f'Writing milestones from {file_name} into output.csv')
+      reader = csv.reader(file_object)
+      for row in reader:
+        writer.writerow(row)
+      logger.info(f'Successfully parsed milestones from {file_name}')
+      print(f'Successfully parsed milestones from {file_name}')
+      
     
+def main():
+  try:
+    logger.info('Starting parser...')
+    service = get_google_drive_service()
+    logger.info('Credentials obtained.')
+    file_list = get_file_list(service)
+    logger.info('"To Be Processed" file list obtained.')
+        
+    if not file_list:
+      logger.warning('No files found in \'To Be Processed\' folder.')
+      return
+    
+    parse_documents(file_list, service)
+    logger.info('Shutting down parser...')
+  except Exception as e:
+    logger.error(f"An unexpected error occurred: {e}")
     
 if __name__ == '__main__':
     main()
