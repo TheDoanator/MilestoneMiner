@@ -90,6 +90,7 @@ def call_gemini(prompt_text):
     "- MILESTONE PAYMENTS for obligations listed the section titled \'Milestone Payments\'.\n"
     "MilestoneTargetDate — the due date for the obligation in YYYY-MM-DD format.\n"
     "- If the milestone has no explicit date, leave this field blank.\n"
+    "- If the due date falls in April, June, September, or November and the day is the 31st, adjust the day to the 30th.\n"
     "MilestoneDescription — For each milestone (e.g., a, b, c), include ALL sentences in that item, from the first sentence starting with 'Upon ...' or 'Licensee shall pay ...' to the last sentence **before the next item or section**. Wrap the entire block in double quotes. Do not shorten or stop early.\n"
     "- These will only ever be found inside sections titled 'Performance Milestones' and 'Milestone Payments'.\n"
     "- If the final character in the milestone description is a semicolon, remove it. Do not include trailing semicolons.\n"
@@ -103,6 +104,7 @@ def call_gemini(prompt_text):
     "- Use a single comma (\",\") as the delimiter between each field.\n"
     "- Preserve the order in which milestones appear in the agreement.\n"
     "- Do NOT include a header row. Begin immediately with the first milestone row.\n"
+    "- If any duplicate milestones are detected, remove all but one instance.\n"
     "Input: " + prompt_text
   , generation_config={"temperature": 0})
   return response
