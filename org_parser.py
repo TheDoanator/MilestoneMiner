@@ -8,21 +8,22 @@ import google.generativeai as genai # type: ignore
 from datetime import datetime
 from google.oauth2 import service_account # type: ignore
 from googleapiclient.discovery import build # type: ignore
-from googleapiclient.http import MediaIoBaseDownload # type: ignore
+from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload # type: ignore
 
 SCOPES = ['https://www.googleapis.com/auth/drive']
 TO_BE_PROCESSED_FOLDER_ID = 'REMOVED'
 PROCESSED_FOLDER_ID = 'REMOVED'
 OUTPUT_FOLDER_ID = 'REMOVED'
 LOGGING_FOLDER_ID = 'REMOVED'
+TIMESTAMP = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+LOG_FILENAME = f"{TIMESTAMP}_parser.log"
+OUTPUT_CSV_FILENAME = f"{TIMESTAMP}_output.csv"
 
 def config_logger():
-  timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-  log_filename = f"{timestamp}_parser.log"
   logger = logging.getLogger()
   logger.setLevel(logging.DEBUG)
   formatter = logging.Formatter('%(levelname)s:%(asctime)s: %(message)s')
-  file_handler = logging.FileHandler(log_filename)
+  file_handler = logging.FileHandler(LOG_FILENAME)
   file_handler.setLevel(logging.INFO)
   file_handler.setFormatter(formatter)
   logger.addHandler(file_handler)
@@ -33,9 +34,9 @@ logger = config_logger()
 
 def get_google_drive_service():
   creds: None
-  if os.path.exists('service_account.json'):
+  if os.path.exists('org_service_account.json'):
     logger.info('service_account.json file found! Creating credentials...')
-    creds = service_account.Credentials.from_service_account_file('service_account.json', scopes=SCOPES)
+    creds = service_account.Credentials.from_service_account_file('org_service_account.json', scopes=SCOPES)
   return build('drive', 'v3', credentials=creds)
 
 def get_file_list(service):
@@ -92,6 +93,7 @@ def call_gemini(prompt_text):
     "MilestoneDescription — For each milestone (e.g., a, b, c), include ALL sentences in that item, from the first sentence starting with 'Upon ...' or 'Licensee shall pay ...' to the last sentence **before the next item or section**. Wrap the entire block in double quotes. Do not shorten or stop early.\n"
     "- These will only ever be found inside sections titled 'Performance Milestones' and 'Milestone Payments'.\n"
     "- If the final character in the milestone description is a semicolon, remove it. Do not include trailing semicolons.\n"
+    "- Only extract milestones from the text inside Sections 9 and 10.5. Ignore all other sections and text.\n"
     "MilestoneSetDeadline — TRUE if a due date exists for the milestone, otherwise FALSE.\n"
     "MilestonePayment — the numeric dollar amount associated with the milestone, with no currency symbol or commas (e.g., 3610).\n"
     "- If no payment is specified, leave this field blank.\n"
@@ -105,9 +107,36 @@ def call_gemini(prompt_text):
   return response
 
 
+def upload_file_to_drive(service, folder_id, file_name, mime_type):
+  file_metadata = {
+    'name': file_name,
+    'parents': [folder_id]
+  }
+  media = MediaFileUpload(file_name, mimetype=mime_type)
+  file = service.files().create(body=file_metadata, media_body=media, fields='id', supportsAllDrives=True).execute()
+  print(f"Uploaded File ID: {file.get('id')}; File Name: {file_name}")
+  os.remove(file_name)
+    
+    
+def move_file_to_processed(service, file_id):
+  try:
+    file = service.files().get(fileId=file_id, fields='parents', supportsAllDrives=True).execute()
+    previous_parents = ",".join(file.get('parents'))
+    file = service.files().update(
+      fileId=file_id,
+      addParents=PROCESSED_FOLDER_ID,
+      removeParents=previous_parents,
+      fields='id, parents',
+      supportsAllDrives=True
+    ).execute()
+  except Exception as e:
+    logger.error(f'Error moving file to \'Processed\' folder: {str(e)}')
+    raise
+
+
 def parse_documents(file_list, service):
   logger.info('Creating output.csv file...')
-  with open('output.csv', 'w', newline='') as csvfile:
+  with open(OUTPUT_CSV_FILENAME, 'w', newline='') as csvfile:
     writer = csv.writer(csvfile)
     logger.info('Writing header row in output.csv')
     writer.writerow([
@@ -156,7 +185,10 @@ def main():
       return
     
     parse_documents(file_list, service)
+    logger.info('Uploading output CSV file to Google Drive...')
+    upload_file_to_drive(service, OUTPUT_FOLDER_ID, OUTPUT_CSV_FILENAME, 'text/csv')
     logger.info('Shutting down parser...')
+    upload_file_to_drive(service, LOGGING_FOLDER_ID, LOG_FILENAME, 'text/plain')
   except Exception as e:
     logger.error(f"An unexpected error occurred: {e}")
     

@@ -1,2 +1,6 @@
 service_account.json
 output.txt
+output.csv
+correct_output.csv
+prompt.txt
+.DS_Store
