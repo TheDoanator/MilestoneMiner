@@ -104,7 +104,6 @@ def call_gemini(prompt_text):
     "- Use a single comma (\",\") as the delimiter between each field.\n"
     "- Preserve the order in which milestones appear in the agreement.\n"
     "- Do NOT include a header row. Begin immediately with the first milestone row.\n"
-    "- If any duplicate milestones are detected, remove all but one instance.\n"
     "Input: " + prompt_text
   , generation_config={"temperature": 0})
   return response
