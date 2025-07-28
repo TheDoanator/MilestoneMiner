@@ -94,6 +94,7 @@ def call_gemini(prompt_text):
     "- These will only ever be found inside sections titled 'Performance Milestones' and 'Milestone Payments'.\n"
     "- If the final character in the milestone description is a semicolon, remove it. Do not include trailing semicolons.\n"
     "- Only extract milestones from the text inside Sections 9 and 10.5. Ignore all other sections and text.\n"
+    "- There may be instances where after the last performance milestone or milestone payment, there is an extra description. Ignore this."
     "MilestoneSetDeadline — TRUE if a due date exists for the milestone, otherwise FALSE.\n"
     "MilestonePayment — the numeric dollar amount associated with the milestone, with no currency symbol or commas (e.g., 3610).\n"
     "- If no payment is specified, leave this field blank.\n"
