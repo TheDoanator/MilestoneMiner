@@ -8,7 +8,7 @@ Extracts key milestones from license agreements (.docx) and outputs a structured
 
 ## What It Does (Current Capabilities)
 - **Input:** `.docx` agreements (Word)
-- **Output:** `milestones.csv` (structured rows) + `run.log` (trace + errors)
+- **Output:** `milestones.csv` (structured rows) + `YYYY-MM-DD_HH-MM-SS_parser.log` (trace + errors)
 - **Sources:** Files are fetched from Google Drive using service-account credentials
 - **Engine:** Google Gemini API parses milestone data from document text
 - **Delivery:** CSV and log are written locally, then uploaded back to Drive
