@@ -1,4 +1,4 @@
-# AI Agreement Parser 🧾➡️📊
+# AI Agreement Parser
 Extracts key milestones from license agreements (.docx) and outputs a structured CSV + run log.
 
 ## Why This Exists
