@@ -27,6 +27,8 @@ Extracts key milestones from license agreements (.docx) and outputs a structured
 
 ### Example Output (Illustrative)
 ```csv
-agreement_id,milestone,description,due_date,source_section,confidence
-AG-2025-017,Payment #1,"Initial license fee due",2025-07-01,"Section 3.1",0.92
-AG-2025-017,Report,"Quarterly sales report",2025-09-30,"Exhibit B",0.88
+OTC Agreement Number,Milestone Name,Milestone Target Completion Date,Milestone Description,Milestone Set Deadline,Milestone Payment
+A-2099-0001,PERFORMANCE MILESTONES,2099-06-30,"By June 30, 2099, Licensee will initiate first pilot production run of Licensed Product",True,
+A-2099-0001,MILESTONE PAYMENTS,,"Upon first commercial sale of Licensed Product, Licensee shall pay $5,000 to University",False,5000.0
+A-2100-0042,PERFORMANCE MILESTONES,2100-03-15,"By March 15, 2100, Licensee will submit regulatory approval documents",True,
+A-2100-0042,PERFORMANCE MILESTONES,2100-10-01,"By October 1, 2100, Licensee will deliver annual progress report",True,
