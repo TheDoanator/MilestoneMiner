@@ -1,4 +1,4 @@
-# AI Agreement Parser
+# MilestoneMiner
 
 A portfolio project demonstrating advanced document parsing and automation using LLMs and Google APIs. This tool extracts key milestones from license agreements (.docx) and outputs structured CSV files alongside detailed run logs.
 
