@@ -1,10 +1,2 @@
-service_account.json
-output.txt
-output.csv
-correct_output.csv
-prompt.txt
+.env
 .DS_Store
-local_parser.py
-local_service_account.json
-org_parser.py
-org_service_account.json
